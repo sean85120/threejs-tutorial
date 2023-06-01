@@ -1,15 +1,53 @@
 import { useEffect } from 'react';
 
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import Stats from 'three/examples/jsm/libs/stats.module';
 import { GUI } from 'dat.gui';
 
-import SceneInit from './lib/SceneInit';
+// import SceneInit from './lib/SceneInit';
 
 function App() {
   useEffect(() => {
-    const test = new SceneInit('myThreeJsCanvas');
-    test.initialize();
-    test.animate();
+
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(
+      45,
+      window.innerWidth / window.innerHeight,
+      1,
+      1000
+    );
+
+    camera.position.z = 16;
+
+    let direction = true;
+
+
+    // canvas and renderer
+
+    const canvas = document.getElementById('myThreeJsCanvas');
+    const renderer = new THREE.WebGLRenderer(
+      {
+        canvas,
+        antialias: true,
+      }
+    );
+    renderer.shadowMap.enable = true
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // add orbit controls
+    const controls = new OrbitControls(camera, renderer.domElement);
+
+    controls.minDistance = 20;
+    controls.maxDistance = 100;
+    controls.enableDamping = true;
+
+    // add fps stats
+    const stats = Stats();
+    document.body.appendChild(stats.dom);
 
     // initialize gui
     const gui = new GUI();
@@ -17,7 +55,7 @@ function App() {
     // main group
     const mainGroup = new THREE.Group();
     mainGroup.position.y = 0.5;
-    test.scene.add(mainGroup);
+    scene.add(mainGroup);
 
     // const
     const wallHeight = 25;
@@ -253,6 +291,79 @@ function App() {
     slFolder.add(sl, 'angle', Math.PI / 16, Math.PI / 2, Math.PI / 16);
     slFolder.add(sl, 'castShadow');
     slFolder.open();
+
+    const animate = () => {
+
+      boxMesh1.rotation.x += 0.01;
+
+      renderer.render(scene, camera);
+      window.requestAnimationFrame(animate);
+      stats.update();
+
+      // camera animate
+      function counterclock() {
+        camera.position.x += 0.05;
+        camera.position.z -= 0.05;
+      }
+
+      function clockwise() {
+        camera.position.x -= 0.05;
+        camera.position.z += 0.05;
+      }
+
+      if (direction === true) {
+
+        counterclock();
+        console.log(`${camera.position.x}`)
+
+        if (camera.position.x > 10) {
+          console.log('direction is true')
+          direction = false;
+          clockwise();
+
+        }
+      } else if (direction === false) {
+
+        clockwise();
+        console.log(`${camera.position.x}`)
+
+
+        if (camera.position.x < 0) {
+          direction = true;
+          console.log('direction is true')
+          counterclock();
+        }
+      }
+
+      camera.lookAt(mainGroup.position);
+    }
+
+    const onWindowResize = () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+
+      renderer.setSize(window.innerWidth, window.innerHeight);
+
+    }
+
+    const updateCamera = () => {
+
+      // // define the camera limits
+      // const minCameraPosition = new THREE.Vector3(-100, 0, -100);
+      // const maxCameraPosition = new THREE.Vector3(100, 100, 100);
+
+      // // position limits
+      // camera.position.clamp(minCameraPosition, maxCameraPosition);
+
+      // controls.update();
+      texture.needsUpdate = true;
+
+    }
+
+    animate();
+    // onWindowResize();
+
+    updateCamera();
 
     // Destroy the GUI on reload to prevent multiple stale UI from being displayed on screen.
     return () => {
