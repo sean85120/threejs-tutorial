@@ -34,6 +34,8 @@ export default class SceneInit {
       1000
     );
     this.camera.position.z = 16;
+    // const minCameraRotation = new THREE.Vector3()
+    // const maxCameraRotation = new THREE.Vector3()
 
     // NOTE: Specify a canvas which is already created in the HTML.
     const canvas = document.getElementById(this.canvasId);
@@ -77,6 +79,16 @@ export default class SceneInit {
     //   colorA: { type: 'vec3', value: new THREE.Color(0xffffff) },
     // };
   }
+
+  // updateCamera() {
+
+  //   // define the camera limits
+  //   const minCameraPosition = new THREE.Vector3(-100, 0, -100);
+  //   const maxCameraPosition = new THREE.Vector3(100, 100, 100);
+
+  //   // position limits
+  //   this.camera.position.clamp(minCameraPosition, maxCameraPosition);
+  // }
 
   animate() {
     // NOTE: Window is implied.

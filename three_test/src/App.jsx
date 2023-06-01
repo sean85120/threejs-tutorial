@@ -19,29 +19,153 @@ function App() {
     mainGroup.position.y = 0.5;
     test.scene.add(mainGroup);
 
-    // normal box
-    // const bg0 = new THREE.BoxGeometry(1, 1, 1);
-    // const bm0 = new THREE.MeshNormalMaterial();
-    // const boxMesh0 = new THREE.Mesh(bg0, bm0);
-    // test.scene.add(boxMesh0);
+    // const
+    const wallHeight = 25;
+    const wallWidth = 50;
+    const wallDepth = 50;
+
+    const positionY = 10;
+    const positionX = wallWidth / 2;
+    const positionZ = wallDepth / 2;
+
+
+    // const createVideoWall = (video) => {
+    //   const videoWallGeometry = new THREE.BoxGeometry(wallwidth, wallHeight, 0.5);
+
+    //   const video = document.getElementById('video');
+    //   const VideoTexture = new THREE.VideoTexture(video);
+    //   const videoWallMaterial = new THREE.MeshBasicMaterial({ map:  VideoTexture});
+
+    //   const videoMesh = new THREE.Mesh(videoWallGeometry, videoWallMaterial);
+    // }
+
+    const createWall = (image) => {
+      const wallGeometry = new THREE.BoxGeometry(wallDepth, wallHeight, 0.5);
+      const wallTexture = new THREE.TextureLoader().load(image);
+
+      const wallMaterial = new THREE.MeshPhongMaterial({ map: wallTexture });
+      const wallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
+      const name = 'sean'
+
+      console.log(`createWall: ${image}`);
+
+      return wallMesh;
+    }
+
+    let wallMesh;
+
+    // left wall
+    wallMesh = createWall('/src/assets/walls_news_anchor.jpeg');
+    wallMesh.rotation.y = Math.PI / 2;
+    wallMesh.position.x = -positionX;
+    wallMesh.position.y = positionY;
+
+    mainGroup.add(wallMesh);
+
+    // right wall
+    wallMesh = createWall('/src/assets/walls_news_anchor.jpeg');
+    wallMesh.rotation.y = Math.PI / 2;
+    wallMesh.position.x = positionX;
+    wallMesh.position.y = positionY;
+
+    mainGroup.add(wallMesh);
+
+    // backwall
+    wallMesh = createWall('/src/assets/walls_news_anchor.jpeg');
+    wallMesh.position.z = positionZ;
+    wallMesh.position.y = positionY;
+
+    mainGroup.add(wallMesh);
 
     // set up ground
-    const groundGeometry = new THREE.BoxGeometry(8, 0.5, 8);
+    const groundGeometry = new THREE.BoxGeometry(wallWidth, 0.5, wallDepth);
     const groundMaterial = new THREE.MeshPhongMaterial({ color: 0xfafafa });
     const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
     groundMesh.receiveShadow = true;
     groundMesh.position.y = -2;
     mainGroup.add(groundMesh);
 
-    // set up torus for youtube thumbnail
-    // const bg1 = new THREE.TorusGeometry(1.5, 0.75, 64, 64);
-    // const bm1 = new THREE.MeshNormalMaterial({ color: 0xff0000 });
-    // const boxMesh1 = new THREE.Mesh(bg1, bm1);
-    // boxMesh1.castShadow = true;
-    // boxMesh1.position.y = 1;
-    // boxMesh1.position.z = 1;
-    // boxMesh1.rotation.x = -Math.PI / 3;
-    // mainGroup.add(boxMesh1);
+    // set up background
+    const bgGeometry = new THREE.BoxGeometry(wallWidth, wallHeight, 0.5);
+
+    var bgTexture = new THREE.TextureLoader().load('/src/assets/news_anchor.jpeg');
+
+    const bgMaterial = new THREE.MeshPhongMaterial({ map: bgTexture, });
+    // side: THREE.DoubleSide
+    const bgMesh = new THREE.Mesh(bgGeometry, bgMaterial);
+
+    // bgMesh.rotation.x = -Math.PI / 2;
+    bgMesh.position.z = -positionZ;
+    bgMesh.position.y = positionY;
+    mainGroup.add(bgMesh);
+
+    // set up walls
+    const wallGeometry = new THREE.BoxGeometry(wallDepth, wallHeight, 0.5);
+
+    var wallTetxture = new THREE.TextureLoader().load('/src/assets/walls_news_anchor.jpeg');
+
+    const wallMaterial = new THREE.MeshPhongMaterial({ map: wallTetxture });
+
+    // left wall
+    const leftWallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
+
+    leftWallMesh.rotation.y = Math.PI / 2;
+    leftWallMesh.position.x = -positionX;
+    leftWallMesh.position.y = positionY;
+
+    // right wall
+    const rightWallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
+
+    rightWallMesh.rotation.y = Math.PI / 2;
+    rightWallMesh.position.x = positionX;
+    rightWallMesh.position.y = positionY;
+
+    // back wall
+    // const backwallGeometry = new THREE.BoxGeometry(wallWidth, wallHeight, 0.5);
+    const backWallMesh = new THREE.Mesh(bgGeometry, wallMaterial);
+
+    backWallMesh.position.z = positionZ;
+    backWallMesh.position.y = positionY;
+
+    // mainGroup.add(leftWallMesh);
+    // mainGroup.add(rightWallMesh);
+    // mainGroup.add(backWallMesh);
+
+    // set up ceiling
+    const ceilingGeometry = new THREE.BoxGeometry(wallWidth, 0.5, wallDepth);
+
+    const ceilingMesh = new THREE.Mesh(ceilingGeometry, wallMaterial);
+
+    // ceilingMesh.rotation.x = Math.PI / 2;
+
+    ceilingMesh.position.y = 22;
+
+    mainGroup.add(ceilingMesh);
+
+    // set up video geometry
+
+    const box_test = new THREE.BoxGeometry(1, 1, 1);
+
+    const video = document.getElementById('video');
+    const texture = new THREE.VideoTexture(video);
+
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+
+    // const TextureLoader = new THREE.TextureLoader();
+    // const texture = TextureLoader.load('/src/assets/in.mp4');
+
+    const videoMaterial = new THREE.MeshBasicMaterial({
+      map: texture,
+      side: THREE.FrontSide,
+      toneMapped: false
+    });
+
+    const videoMesh = new THREE.Mesh(box_test, videoMaterial);
+    videoMesh.position.z = 2;
+    videoMesh.castShadow = true;
+
+    mainGroup.add(videoMesh);
 
     // set up red box mesh
     const bg1 = new THREE.BoxGeometry(1, 1, 1);
@@ -113,7 +237,8 @@ function App() {
     const sl = new THREE.SpotLight(0x00ff00, 1, 8, Math.PI / 8, 0);
     sl.position.set(0, 2, 2);
     const slHelper = new THREE.SpotLightHelper(sl);
-    mainGroup.add(sl, slHelper);
+    mainGroup.add(sl);
+    mainGroup.add(slHelper);
 
     // set up spot light gui
     const slSettings = {
@@ -128,31 +253,6 @@ function App() {
     slFolder.add(sl, 'angle', Math.PI / 16, Math.PI / 2, Math.PI / 16);
     slFolder.add(sl, 'castShadow');
     slFolder.open();
-
-    const pl = new THREE.PointLight(0xffffff, 1, 8, 2);
-    pl.position.set(2, 2, 2);
-    const plHelper = new THREE.PointLightHelper(pl, 0.5);
-    mainGroup.add(pl, plHelper);
-
-    // set up point light gui
-    const plSettings = {
-      visible: true,
-      color: pl.color.getHex(),
-    };
-    const plFolder = gui.addFolder('point light');
-    plFolder.add(plSettings, 'visible').onChange((value) => {
-      pl.visible = value;
-      plHelper.visible = value;
-    });
-    plFolder.add(pl, 'intensity', 0, 2, 0.25);
-    plFolder.add(pl.position, 'x', -2, 4, 0.5);
-    plFolder.add(pl.position, 'y', -2, 4, 0.5);
-    plFolder.add(pl.position, 'z', -2, 4, 0.5);
-    plFolder.add(pl, 'castShadow');
-    plFolder
-      .addColor(plSettings, 'color')
-      .onChange((value) => pl.color.set(value));
-    plFolder.open();
 
     // Destroy the GUI on reload to prevent multiple stale UI from being displayed on screen.
     return () => {
