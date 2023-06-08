@@ -82,15 +82,9 @@ export default class SceneInit {
     // NOTE: Window is implied.
     // requestAnimationFrame(this.animate.bind(this));
     window.requestAnimationFrame(this.animate.bind(this));
-    this.render();
+    // this.render();
     this.stats.update();
     this.controls.update();
-  }
-
-  render() {
-    // NOTE: Update uniform data on each render.
-    // this.uniforms.u_time.value += this.clock.getDelta();
-    this.renderer.render(this.scene, this.camera);
   }
 
   onWindowResize() {
