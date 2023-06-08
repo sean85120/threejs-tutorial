@@ -1,53 +1,33 @@
 import { useEffect } from 'react';
 
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import Stats from 'three/examples/jsm/libs/stats.module';
 import { GUI } from 'dat.gui';
 
-// import SceneInit from './lib/SceneInit';
+import SceneInit from './lib/SceneInit';
 
 function App() {
   useEffect(() => {
+    const test = new SceneInit('myThreeJsCanvas');
+    test.initialize();
+    test.animate();
 
-    const scene = new THREE.Scene();
+    const aspect = window.innerWidth / window.innerHeight;
 
-    const camera = new THREE.PerspectiveCamera(
+    const insetWidth = window.innerWidth / 4;
+    const insetHeight = window.innerHeight / 4;
+
+    // tvCamera
+    const tvCamera = new THREE.PerspectiveCamera(
       45,
-      window.innerWidth / window.innerHeight,
+      aspect,
       1,
       1000
     );
 
-    camera.position.z = 16;
+    tvCamera.position.z = 5;
+    tvCamera.position.y = 5;
 
-    let direction = true;
-
-
-    // canvas and renderer
-
-    const canvas = document.getElementById('myThreeJsCanvas');
-    const renderer = new THREE.WebGLRenderer(
-      {
-        canvas,
-        antialias: true,
-      }
-    );
-    renderer.shadowMap.enable = true
-
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
-
-    // add orbit controls
-    const controls = new OrbitControls(camera, renderer.domElement);
-
-    controls.minDistance = 20;
-    controls.maxDistance = 100;
-    controls.enableDamping = true;
-
-    // add fps stats
-    const stats = Stats();
-    document.body.appendChild(stats.dom);
+    tvCamera.lookAt(0, 0, 2);
 
     // initialize gui
     const gui = new GUI();
@@ -55,7 +35,7 @@ function App() {
     // main group
     const mainGroup = new THREE.Group();
     mainGroup.position.y = 0.5;
-    scene.add(mainGroup);
+    test.scene.add(mainGroup);
 
     // const
     const wallHeight = 25;
@@ -66,31 +46,86 @@ function App() {
     const positionX = wallWidth / 2;
     const positionZ = wallDepth / 2;
 
+    let wallMesh;
 
-    // const createVideoWall = (video) => {
-    //   const videoWallGeometry = new THREE.BoxGeometry(wallwidth, wallHeight, 0.5);
+    // create wall function
+    const createCustomWall = (image) => {
+      const wallGeometry = new THREE.BoxGeometry(wallDepth, wallHeight, 0.5);
+      const wallTexture = new THREE.TextureLoader().load(image);
 
-    //   const video = document.getElementById('video');
-    //   const VideoTexture = new THREE.VideoTexture(video);
-    //   const videoWallMaterial = new THREE.MeshBasicMaterial({ map:  VideoTexture});
+      const wallMaterial = new THREE.MeshPhongMaterial({ map: wallTexture });
+      const wallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
 
-    //   const videoMesh = new THREE.Mesh(videoWallGeometry, videoWallMaterial);
-    // }
+      // console.log(`createWall: ${image}`);
+      mainGroup.add(wallMesh);
 
+      return wallMesh;
+    };
+
+    // create box
+    const createBox = () => {
+      const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
+
+      const boxMaterial = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
+
+      const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
+
+      return boxMesh;
+    }
+
+    // create websocket connection
+    try {
+      const ws = new WebSocket('ws://localhost:9999');
+
+      ws.onopen = () => {
+        console.log('ws connected');
+      };
+
+      ws.onmessage = (message) => {
+        console.log(message.data);
+        const data = JSON.parse(message.data);
+        console.log(data.method);
+        // {"method":"createWall", "params":{"image":"./src/assets/walls_news_anchor.jpeg"}}
+
+        if (data.method === 'createWall') {
+          const image = data.params.image;
+          const wallMesh = createCustomWall(image);
+        }
+
+        // {"method":"switchTvScreen"}
+
+        else if (data.method === 'switchTvScreen') {
+          // const camera = data.params.camera;
+
+          console.log('renderer.domElement: ', renderer.domElement);
+
+          // const switchTvScreen = switchTvScreen();
+        }
+      };
+    } catch (error) { console.log(error); };
+
+    //  switch camera to tv camera screen 
+
+    const switchTvScreen = () => {
+      console.log('renderer.domElement: ', renderer.domElement);
+
+      const sideCamera = renderer.domElement;
+      console.log('sideCamera: ', sideCamera);
+      tvVideoMaterial.map = new THREE.Texture(sideCamera);
+
+    }
+
+    // create wall function
     const createWall = (image) => {
       const wallGeometry = new THREE.BoxGeometry(wallDepth, wallHeight, 0.5);
       const wallTexture = new THREE.TextureLoader().load(image);
 
       const wallMaterial = new THREE.MeshPhongMaterial({ map: wallTexture });
       const wallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
-      const name = 'sean'
 
-      console.log(`createWall: ${image}`);
-
+      // console.log(`createWall: ${image}`);
       return wallMesh;
-    }
-
-    let wallMesh;
+    };
 
     // left wall
     wallMesh = createWall('/src/assets/walls_news_anchor.jpeg');
@@ -125,10 +160,9 @@ function App() {
 
     // set up background
     const bgGeometry = new THREE.BoxGeometry(wallWidth, wallHeight, 0.5);
-
-    var bgTexture = new THREE.TextureLoader().load('/src/assets/news_anchor.jpeg');
-
+    const bgTexture = new THREE.TextureLoader().load('/src/assets/news_anchor.jpeg');
     const bgMaterial = new THREE.MeshPhongMaterial({ map: bgTexture, });
+
     // side: THREE.DoubleSide
     const bgMesh = new THREE.Mesh(bgGeometry, bgMaterial);
 
@@ -139,9 +173,7 @@ function App() {
 
     // set up walls
     const wallGeometry = new THREE.BoxGeometry(wallDepth, wallHeight, 0.5);
-
-    var wallTetxture = new THREE.TextureLoader().load('/src/assets/walls_news_anchor.jpeg');
-
+    const wallTetxture = new THREE.TextureLoader().load('/src/assets/walls_news_anchor.jpeg');
     const wallMaterial = new THREE.MeshPhongMaterial({ map: wallTetxture });
 
     // left wall
@@ -184,7 +216,7 @@ function App() {
 
     const box_test = new THREE.BoxGeometry(1, 1, 1);
 
-    const video = document.getElementById('video');
+    const video = document.getElementById('video_test');
     const texture = new THREE.VideoTexture(video);
 
     texture.minFilter = THREE.LinearFilter;
@@ -228,6 +260,30 @@ function App() {
     boxMesh3.castShadow = true;
     boxMesh3.position.x = 2;
     mainGroup.add(boxMesh3);
+
+
+    // create tv screen
+    const tvGeometry = new THREE.BoxGeometry(20, 9, 0.5);
+
+    // const video2 = document.getElementById('video_test2');
+
+    // if (video2.muted) {
+    //   console.log('play');
+    //   video2.play();
+    // }
+
+    // const videoMaterial2 = new THREE.MeshPhongMaterial({ map: texture2, side: THREE.DoubleSide, toneMapped: false });
+    const tvVideoMaterial = new THREE.MeshBasicMaterial();
+
+    const videoMesh2 = new THREE.Mesh(tvGeometry, tvVideoMaterial);
+
+    videoMesh2.position.set(9.2, positionY + 1.9, -positionZ + 0.1)
+
+    mainGroup.add(videoMesh2);
+
+
+    const mainCamera = test.renderer.domElement;
+    tvVideoMaterial.map = new THREE.Texture(mainCamera);
 
     // set up ambient light
     const al = new THREE.AmbientLight(0xffffff, 0.5);
@@ -275,8 +331,7 @@ function App() {
     const sl = new THREE.SpotLight(0x00ff00, 1, 8, Math.PI / 8, 0);
     sl.position.set(0, 2, 2);
     const slHelper = new THREE.SpotLightHelper(sl);
-    mainGroup.add(sl);
-    mainGroup.add(slHelper);
+    mainGroup.add(sl, slHelper);
 
     // set up spot light gui
     const slSettings = {
@@ -292,61 +347,74 @@ function App() {
     slFolder.add(sl, 'castShadow');
     slFolder.open();
 
-    const animate = () => {
-
-      boxMesh1.rotation.x += 0.01;
-
-      renderer.render(scene, camera);
-      window.requestAnimationFrame(animate);
-      stats.update();
-
-      // camera animate
-      function counterclock() {
-        camera.position.x += 0.05;
-        camera.position.z -= 0.05;
-      }
-
-      function clockwise() {
-        camera.position.x -= 0.05;
-        camera.position.z += 0.05;
-      }
-
-      if (direction === true) {
-
-        counterclock();
-        console.log(`${camera.position.x}`)
-
-        if (camera.position.x > 10) {
-          console.log('direction is true')
-          direction = false;
-          clockwise();
-
-        }
-      } else if (direction === false) {
-
-        clockwise();
-        console.log(`${camera.position.x}`)
-
-
-        if (camera.position.x < 0) {
-          direction = true;
-          console.log('direction is true')
-          counterclock();
-        }
-      }
-
-      camera.lookAt(mainGroup.position);
-    }
-
+    // resize window function
     const onWindowResize = () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
+      test.camera.aspect = window.innerWidth / window.innerHeight;
+      test.camera.updateProjectionMatrix();
 
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      test.renderer.setSize(window.innerWidth, window.innerHeight);
 
+      tvCamera.aspect = insetWidth / insetHeight;
+
+      tvCamera.updateProjectionMatrix();
+
+    };
+
+    var move = 0.05
+
+    //  animate function
+    const animate2 = () => {
+
+      test.camera.updateProjectionMatrix();
+
+      // camera 1
+      test.renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+      test.renderer.setScissor(0, 0, window.innerWidth, window.innerHeight);
+      test.renderer.setScissorTest(true);
+      test.renderer.render(test.scene, test.camera);
+
+      // camera 2
+
+      test.renderer.setViewport(
+        window.innerWidth - insetWidth - 50,
+        window.innerHeight - insetHeight - 50,
+        insetWidth,
+        insetHeight
+      );
+
+      test.renderer.setScissor(
+        window.innerWidth - insetWidth - 50,
+        window.innerHeight - insetHeight - 50,
+        insetWidth,
+        insetHeight
+      );
+
+      test.renderer.setScissorTest(true);
+      test.renderer.render(test.scene, tvCamera);
+
+      tvVideoMaterial.map.needsUpdate = true;
+
+      test.stats.update();
+
+      videoMesh.rotation.y -= 1;
+
+      // // camera movement
+
+      // camera.position.x += move;
+      // camera.position.z -= move;
+
+      // // console.log(`${camera.position.x}`)
+
+      // if (camera.position.x <= 0 || camera.position.x >= 10) {
+      //   move = -move;
+      // }
+
+      test.camera.lookAt(mainGroup.position);
+
+      window.requestAnimationFrame(animate2);
     }
 
-    const updateCamera = () => {
+    const updateVideoTexture = () => {
 
       // // define the camera limits
       // const minCameraPosition = new THREE.Vector3(-100, 0, -100);
@@ -355,15 +423,14 @@ function App() {
       // // position limits
       // camera.position.clamp(minCameraPosition, maxCameraPosition);
 
-      // controls.update();
+      test.controls.update();
       texture.needsUpdate = true;
 
     }
 
-    animate();
-    // onWindowResize();
-
-    updateCamera();
+    animate2();
+    onWindowResize();
+    updateVideoTexture();
 
     // Destroy the GUI on reload to prevent multiple stale UI from being displayed on screen.
     return () => {
