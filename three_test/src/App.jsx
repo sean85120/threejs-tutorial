@@ -3,7 +3,14 @@ import { useEffect } from 'react';
 import * as THREE from 'three';
 import { GUI } from 'dat.gui';
 
+import * as CANNON from 'cannon-es';
+import CannonDebugger from 'cannon-es-debugger';
+
 import SceneInit from './lib/SceneInit';
+import createWall from './lib/createWall';
+import createSphere from './lib/createSphere';
+import saveScene from './lib/saveScene';
+import switchTvScreen from './lib/switchTvScreen';
 
 function App() {
   useEffect(() => {
@@ -16,26 +23,16 @@ function App() {
     const insetWidth = window.innerWidth / 4;
     const insetHeight = window.innerHeight / 4;
 
-    // tvCamera
-    const tvCamera = new THREE.PerspectiveCamera(
+    // subCamera
+    const subCamera = new THREE.PerspectiveCamera(
       45,
       aspect,
       1,
-      1000
+      500
     );
 
-    tvCamera.position.z = 5;
-    tvCamera.position.y = 5;
-
-    tvCamera.lookAt(0, 0, 2);
-
-    // initialize gui
-    const gui = new GUI();
-
-    // main group
-    const mainGroup = new THREE.Group();
-    mainGroup.position.y = 0.5;
-    test.scene.add(mainGroup);
+    subCamera.position.z = 20;
+    subCamera.position.y = 5;
 
     // const
     const wallHeight = 25;
@@ -48,6 +45,64 @@ function App() {
 
     let wallMesh;
 
+    // initialize cannon
+    const world = new CANNON.World({
+      gravity: new CANNON.Vec3(0, -9.82, 0),
+    });
+
+    const groundBody = new CANNON.Body({
+      type: CANNON.Body.STATIC,
+      shape: new CANNON.Plane(new CANNON.Vec3(wallWidth, wallDepth)),
+    });
+    groundBody.position.set(0, -1.5, 0);
+
+    groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+    world.addBody(groundBody);
+
+    // add spherebody
+    const radius = 1;
+    const sphereBody = new CANNON.Body({
+      mass: 5,
+      shape: new CANNON.Sphere(radius),
+    })
+
+    sphereBody.position.set(0, 10, 0);
+    world.addBody(sphereBody);
+
+    // add sphere mesh
+    const sphereGeometry = new THREE.SphereGeometry(radius);
+    const sphereMaterial = new THREE.MeshBasicMaterial({});
+
+    const sphereMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    sphereMesh.castShadow = true;
+    test.scene.add(sphereMesh);
+
+    const cannonDebugger = new CannonDebugger(test.scene, world, {});
+
+    // add boxbody
+    const boxBody = new CANNON.Body({
+      mass: 5,
+      shape: new CANNON.Box(new CANNON.Vec3(1, 1, 1)),
+    });
+
+    boxBody.position.set(1, 12, 0);
+    world.addBody(boxBody);
+
+    // add box mesh
+    const boxGeometry = new THREE.BoxGeometry(2, 2, 2);
+    const boxMaterial = new THREE.MeshBasicMaterial({});
+    const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
+    boxMesh.castShadow = true;
+    test.scene.add(boxMesh);
+
+    // initialize gui
+    const gui = new GUI();
+
+    // main group
+    const mainGroup = new THREE.Group();
+    mainGroup.position.y = 0.5;
+    test.scene.add(mainGroup);
+
     // create wall function
     const createCustomWall = (image) => {
       const wallGeometry = new THREE.BoxGeometry(wallDepth, wallHeight, 0.5);
@@ -56,22 +111,10 @@ function App() {
       const wallMaterial = new THREE.MeshPhongMaterial({ map: wallTexture });
       const wallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
 
-      // console.log(`createWall: ${image}`);
       mainGroup.add(wallMesh);
 
       return wallMesh;
     };
-
-    // create box
-    const createBox = () => {
-      const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
-
-      const boxMaterial = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
-
-      const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
-
-      return boxMesh;
-    }
 
     // create websocket connection
     try {
@@ -93,122 +136,130 @@ function App() {
         }
 
         // {"method":"switchTvScreen"}
-
         else if (data.method === 'switchTvScreen') {
-          // const camera = data.params.camera;
 
           console.log('renderer.domElement: ', renderer.domElement);
 
           // const switchTvScreen = switchTvScreen();
         }
+
+        // {"method":"listAllObjects"}
+
+        else if (data.method === 'listAllObjects') {
+          test.scene.traverse(object => {
+            if (object.isMesh) {
+              console.log(object);
+              localStorage.setItem('object_list', JSON.stringify(object));
+            }
+          });
+        }
+
+        // {"method":"createSphere"}
+
+        else if (data.method === 'createSphere') {
+
+          for (let i = 0; i < 10; i++) {
+            const randomSphereMesh = createSphere({ world: world, scene: test.scene });
+
+            subCamera.lookAt(randomSphereMesh.position);
+          }
+        }
+
+        // {"method":"saveScene"}
+        else if (data.method === 'saveScene') {
+          const sceneScene = saveScene({ scene: test.scene });
+        }
+
       };
     } catch (error) { console.log(error); };
 
-    //  switch camera to tv camera screen 
 
-    const switchTvScreen = () => {
-      console.log('renderer.domElement: ', renderer.domElement);
-
-      const sideCamera = renderer.domElement;
-      console.log('sideCamera: ', sideCamera);
-      tvVideoMaterial.map = new THREE.Texture(sideCamera);
-
-    }
-
-    // create wall function
-    const createWall = (image) => {
-      const wallGeometry = new THREE.BoxGeometry(wallDepth, wallHeight, 0.5);
-      const wallTexture = new THREE.TextureLoader().load(image);
-
-      const wallMaterial = new THREE.MeshPhongMaterial({ map: wallTexture });
-      const wallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
-
-      // console.log(`createWall: ${image}`);
-      return wallMesh;
-    };
+    // walls img
+    const wall_news_anchor_img = '/src/assets/walls_news_anchor.jpeg';
 
     // left wall
-    wallMesh = createWall('/src/assets/walls_news_anchor.jpeg');
-    wallMesh.rotation.y = Math.PI / 2;
-    wallMesh.position.x = -positionX;
-    wallMesh.position.y = positionY;
+    const wallBody1 = createWall(wall_news_anchor_img, { world: world }, { group: mainGroup });
+    wallBody1.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), Math.PI / 2);
+    wallBody1.position.x = -positionX;
+    wallBody1.position.y = positionY;
 
-    mainGroup.add(wallMesh);
+    wallBody1.name = 'leftWall';
+
+    // mainGroup.add(wallBody);
 
     // right wall
-    wallMesh = createWall('/src/assets/walls_news_anchor.jpeg');
-    wallMesh.rotation.y = Math.PI / 2;
-    wallMesh.position.x = positionX;
-    wallMesh.position.y = positionY;
+    const wallBody2 = createWall(wall_news_anchor_img, { world: world }, { group: mainGroup });
+    wallBody2.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), -Math.PI / 2);
+    wallBody2.position.x = positionX;
+    wallBody2.position.y = positionY;
 
-    mainGroup.add(wallMesh);
+    wallBody2.name = 'rightWall';
+
+    // mainGroup.add(wallBody);
 
     // backwall
-    wallMesh = createWall('/src/assets/walls_news_anchor.jpeg');
-    wallMesh.position.z = positionZ;
-    wallMesh.position.y = positionY;
-
-    mainGroup.add(wallMesh);
+    const wallBody3 = createWall(wall_news_anchor_img, { world: world }, { group: mainGroup });
+    wallBody3.position.y = positionY;
+    wallBody3.position.z = positionZ;
+    wallBody3.name = 'backWall';
+    // mainGroup.add(wallBody3);
 
     // set up ground
-    const groundGeometry = new THREE.BoxGeometry(wallWidth, 0.5, wallDepth);
+    const groundGeometry = new THREE.PlaneGeometry(wallWidth, wallDepth);
     const groundMaterial = new THREE.MeshPhongMaterial({ color: 0xfafafa });
     const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
     groundMesh.receiveShadow = true;
     groundMesh.position.y = -2;
+
+    groundMesh.name = 'ground';
     mainGroup.add(groundMesh);
 
     // set up background
+    const bgBody = new CANNON.Body({
+      type: CANNON.Body.STATIC,
+      shape: new CANNON.Box(new CANNON.Vec3(wallWidth / 2, wallHeight / 2, 0.5)),
+    });
+
+    bgBody.position.set(0, positionY, -positionZ);
+    world.addBody(bgBody);
+
     const bgGeometry = new THREE.BoxGeometry(wallWidth, wallHeight, 0.5);
     const bgTexture = new THREE.TextureLoader().load('/src/assets/news_anchor.jpeg');
     const bgMaterial = new THREE.MeshPhongMaterial({ map: bgTexture, });
 
-    // side: THREE.DoubleSide
     const bgMesh = new THREE.Mesh(bgGeometry, bgMaterial);
 
     // bgMesh.rotation.x = -Math.PI / 2;
-    bgMesh.position.z = -positionZ;
-    bgMesh.position.y = positionY;
+
+    // bgGeometry.position.set(0, positionY, -positionZ)
+    bgMesh.name = 'background';
     mainGroup.add(bgMesh);
 
     // set up walls
     const wallGeometry = new THREE.BoxGeometry(wallDepth, wallHeight, 0.5);
-    const wallTetxture = new THREE.TextureLoader().load('/src/assets/walls_news_anchor.jpeg');
+    const wallTetxture = new THREE.TextureLoader().load(wall_news_anchor_img);
     const wallMaterial = new THREE.MeshPhongMaterial({ map: wallTetxture });
 
-    // left wall
-    const leftWallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
-
-    leftWallMesh.rotation.y = Math.PI / 2;
-    leftWallMesh.position.x = -positionX;
-    leftWallMesh.position.y = positionY;
-
-    // right wall
-    const rightWallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
-
-    rightWallMesh.rotation.y = Math.PI / 2;
-    rightWallMesh.position.x = positionX;
-    rightWallMesh.position.y = positionY;
-
-    // back wall
-    // const backwallGeometry = new THREE.BoxGeometry(wallWidth, wallHeight, 0.5);
-    const backWallMesh = new THREE.Mesh(bgGeometry, wallMaterial);
-
-    backWallMesh.position.z = positionZ;
-    backWallMesh.position.y = positionY;
-
-    // mainGroup.add(leftWallMesh);
-    // mainGroup.add(rightWallMesh);
-    // mainGroup.add(backWallMesh);
-
     // set up ceiling
+    const ceilingBody = new CANNON.Body({
+      type: CANNON.Body.STATIC,
+      shape: new CANNON.Box(new CANNON.Vec3(wallWidth / 2, 1, wallDepth / 2)),
+    })
+
+    // ceilingBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+
+    ceilingBody.position.set(0, 22, 0);
+
+    world.addBody(ceilingBody);
+
     const ceilingGeometry = new THREE.BoxGeometry(wallWidth, 0.5, wallDepth);
 
     const ceilingMesh = new THREE.Mesh(ceilingGeometry, wallMaterial);
 
     // ceilingMesh.rotation.x = Math.PI / 2;
 
-    ceilingMesh.position.y = 22;
+    // ceilingMesh.position.y = 22;
+    ceilingMesh.name = 'ceiling';
 
     mainGroup.add(ceilingMesh);
 
@@ -234,37 +285,12 @@ function App() {
     const videoMesh = new THREE.Mesh(box_test, videoMaterial);
     videoMesh.position.z = 2;
     videoMesh.castShadow = true;
+    videoMesh.name = 'videoMesh';
 
     mainGroup.add(videoMesh);
 
-    // set up red box mesh
-    const bg1 = new THREE.BoxGeometry(1, 1, 1);
-    const bm1 = new THREE.MeshPhongMaterial({ color: 0xff0000 });
-    const boxMesh1 = new THREE.Mesh(bg1, bm1);
-    boxMesh1.castShadow = true;
-    boxMesh1.position.x = -2;
-    mainGroup.add(boxMesh1);
-
-    // set up green box mesh
-    const bg2 = new THREE.BoxGeometry(1, 1, 1);
-    const bm2 = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
-    const boxMesh2 = new THREE.Mesh(bg2, bm2);
-    boxMesh2.castShadow = true;
-    boxMesh2.position.x = 0;
-    mainGroup.add(boxMesh2);
-
-    // set up blue box mesh
-    const bg3 = new THREE.BoxGeometry(1, 1, 1);
-    const bm3 = new THREE.MeshPhongMaterial({ color: 0x0000ff });
-    const boxMesh3 = new THREE.Mesh(bg3, bm3);
-    boxMesh3.castShadow = true;
-    boxMesh3.position.x = 2;
-    mainGroup.add(boxMesh3);
-
-
     // create tv screen
     const tvGeometry = new THREE.BoxGeometry(20, 9, 0.5);
-
     // const video2 = document.getElementById('video_test2');
 
     // if (video2.muted) {
@@ -274,12 +300,13 @@ function App() {
 
     // const videoMaterial2 = new THREE.MeshPhongMaterial({ map: texture2, side: THREE.DoubleSide, toneMapped: false });
     const tvVideoMaterial = new THREE.MeshBasicMaterial();
+    const tvVideoMesh = new THREE.Mesh(tvGeometry, tvVideoMaterial);
 
-    const videoMesh2 = new THREE.Mesh(tvGeometry, tvVideoMaterial);
+    tvVideoMesh.position.set(9.2, positionY + 1.9, -positionZ + 0.1)
 
-    videoMesh2.position.set(9.2, positionY + 1.9, -positionZ + 0.1)
+    tvVideoMesh.name = 'tvVideoMesh';
 
-    mainGroup.add(videoMesh2);
+    mainGroup.add(tvVideoMesh);
 
 
     const mainCamera = test.renderer.domElement;
@@ -297,12 +324,12 @@ function App() {
     alFolder
       .addColor(alSettings, 'color')
       .onChange((value) => al.color.set(value));
-    alFolder.open();
+    // alFolder.open();
 
     // setup directional light + helper
     const dl = new THREE.DirectionalLight(0xffffff, 0.5);
     // use this for YouTube thumbnail
-    dl.position.set(0, 2, 2);
+    dl.position.set(0, 40, 40);
     // dl.position.set(0, 2, 0);
     dl.castShadow = true;
     const dlHelper = new THREE.DirectionalLightHelper(dl, 3);
@@ -325,13 +352,13 @@ function App() {
     dlFolder
       .addColor(dlSettings, 'color')
       .onChange((value) => dl.color.set(value));
-    dlFolder.open();
+    // dlFolder.open();
 
     // set up spot light + helper
     const sl = new THREE.SpotLight(0x00ff00, 1, 8, Math.PI / 8, 0);
     sl.position.set(0, 2, 2);
     const slHelper = new THREE.SpotLightHelper(sl);
-    mainGroup.add(sl, slHelper);
+    mainGroup.add(sl);
 
     // set up spot light gui
     const slSettings = {
@@ -345,7 +372,7 @@ function App() {
     slFolder.add(sl, 'intensity', 0, 4, 0.5);
     slFolder.add(sl, 'angle', Math.PI / 16, Math.PI / 2, Math.PI / 16);
     slFolder.add(sl, 'castShadow');
-    slFolder.open();
+    // slFolder.open();
 
     // resize window function
     const onWindowResize = () => {
@@ -354,9 +381,9 @@ function App() {
 
       test.renderer.setSize(window.innerWidth, window.innerHeight);
 
-      tvCamera.aspect = insetWidth / insetHeight;
+      subCamera.aspect = insetWidth / insetHeight;
 
-      tvCamera.updateProjectionMatrix();
+      subCamera.updateProjectionMatrix();
 
     };
 
@@ -364,6 +391,22 @@ function App() {
 
     //  animate function
     const animate2 = () => {
+
+      world.fixedStep();
+
+      cannonDebugger.update();
+      boxMesh.position.copy(boxBody.position);
+      boxMesh.quaternion.copy(boxBody.quaternion);
+
+      sphereMesh.position.copy(sphereBody.position);
+      sphereMesh.quaternion.copy(sphereBody.quaternion);
+      // groundMesh.position.copy(groundBody.position);
+      groundMesh.quaternion.copy(groundBody.quaternion);
+      ceilingMesh.position.copy(ceilingBody.position);
+      ceilingMesh.quaternion.copy(ceilingBody.quaternion);
+
+      bgMesh.position.copy(bgBody.position);
+      bgMesh.quaternion.copy(bgBody.quaternion);
 
       test.camera.updateProjectionMatrix();
 
@@ -390,26 +433,24 @@ function App() {
       );
 
       test.renderer.setScissorTest(true);
-      test.renderer.render(test.scene, tvCamera);
+      test.renderer.render(test.scene, subCamera);
 
       tvVideoMaterial.map.needsUpdate = true;
 
       test.stats.update();
-
-      videoMesh.rotation.y -= 1;
 
       // // camera movement
 
       // camera.position.x += move;
       // camera.position.z -= move;
 
-      // // console.log(`${camera.position.x}`)
-
       // if (camera.position.x <= 0 || camera.position.x >= 10) {
       //   move = -move;
       // }
 
+      // camera look at
       test.camera.lookAt(mainGroup.position);
+      subCamera.lookAt(boxMesh.position);
 
       window.requestAnimationFrame(animate2);
     }
@@ -432,8 +473,10 @@ function App() {
     onWindowResize();
     updateVideoTexture();
 
-    // Destroy the GUI on reload to prevent multiple stale UI from being displayed on screen.
+
+
     return () => {
+      // Destroy the GUI
       gui.destroy();
     };
   }, []);
