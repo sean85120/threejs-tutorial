@@ -15,7 +15,8 @@ export default function createSphere({ world, scene }) {
     // const randomY = Math.random() * 10;
     const randomZ = Math.random() * 20 - 10;
 
-    randomSphereBody.position.set(randomX, 10, randomZ);
+    // randomSphereBody.position.set(randomX, 10, randomZ);
+    randomSphereBody.position.set(0, 10, 0);
     world.addBody(randomSphereBody);
 
     const randomSphereGeometry = new THREE.SphereGeometry(radius);
@@ -26,8 +27,10 @@ export default function createSphere({ world, scene }) {
     // randomSphereMesh.receiveShadow = true;
     scene.add(randomSphereMesh);
 
-    const action = () => {
+    console.log('scene children: ', scene.children);
+    // console.log('scene children:', scene.children);
 
+    const action = () => {
         // randomSphereBody.position.x += Math.random() * 1 - 0.5;
         // randomSphereBody.position.y += Math.random() * 2 - 1;
         // randomSphereBody.position.z += Math.random() * 1 - 0.5;

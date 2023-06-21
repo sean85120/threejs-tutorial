@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 
 // create wall function
-export default function createWall(image, { world }, { group }) {
+export default function createWall(image, { world, scene }) {
 
     // const
     const wallHeight = 25;
@@ -26,8 +26,9 @@ export default function createWall(image, { world }, { group }) {
 
     const wallMaterial = new THREE.MeshPhongMaterial({ map: wallTexture });
     const wallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
+    wallMesh.name = 'wallMesh';
 
-    group.add(wallMesh);
+    scene.add(wallMesh);
 
     const action = () => {
         world.fixedStep();

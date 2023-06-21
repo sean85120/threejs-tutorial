@@ -1,21 +1,57 @@
 import * as THREE from 'three';
-// import { promises as fsPromises } from 'fs';
+import { saveAs } from 'file-saver';
 
 
-export default function saveScene({ scene }) {
+export default function saveScene({ scene, world }) {
 
-    // const fs = require('fs');
+    // clear the previous localstorage
+    localStorage.clear();
+
+    // save three objects
+    // scene.controls.detach();
+    // scene.remove(controls);
+    // scene.updateMatrixWorld();
     const exporter = scene.toJSON();
     const sceneJson = JSON.stringify(exporter);
     localStorage.setItem('scene', sceneJson);
 
-    // try {
+    // const blob = new Blob([sceneJson], { type: 'application/json' });
+    // saveAs(blob, 'scene.json');
 
-    //     const writeContent = fsPromises.writeFile('scene.json', sceneJson, 'utf8');
-    //     console.log('JSON file has been saved.');
+    // save cannon objects
+    const cannonBodies = [];
 
-    // } catch (err) {
-    //     console.error(err);
-    // }
+    // console.log('world.bodies: ', world.bodies);
+    let i = 0;
+    world.bodies.forEach((body) => {
+        i += 1;
+
+        if (i === 7) {
+            console.log('i: ', i);
+            console.log('body: ', body);
+        }
+        const cannonBody = {
+            id: body.id,
+            type: body.type,
+            name: body.name,
+            mass: body.mass,
+            position: body.position.toArray(),
+            quaternion: body.quaternion.toArray(),
+            velocity: body.velocity.toArray(),
+            angularVelocity: body.angularVelocity.toArray(),
+        };
+
+        cannonBodies.push(cannonBody);
+    })
+
+    const cannonWorld = {
+        bodies: cannonBodies,
+    }
+
+    localStorage.setItem('cannon', JSON.stringify(cannonWorld));
+
+    // const cannonExporter = world.toJSON();
+    // const cannonJson = JSON.stringify(cannonExporter);
+    // localStorage.setItem('cannon', cannonJson);
 
 };

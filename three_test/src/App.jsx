@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 
 import * as THREE from 'three';
 import { GUI } from 'dat.gui';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 import * as CANNON from 'cannon-es';
 import CannonDebugger from 'cannon-es-debugger';
@@ -10,13 +11,15 @@ import SceneInit from './lib/SceneInit';
 import createWall from './lib/createWall';
 import createSphere from './lib/createSphere';
 import saveScene from './lib/saveScene';
+import loadScene from './lib/loadScene';
+import createTvMesh from './lib/createTvMesh';
 import switchTvScreen from './lib/switchTvScreen';
 
 function App() {
   useEffect(() => {
     const test = new SceneInit('myThreeJsCanvas');
     test.initialize();
-    test.animate();
+    test.animate_init();
 
     const aspect = window.innerWidth / window.innerHeight;
 
@@ -43,78 +46,46 @@ function App() {
     const positionX = wallWidth / 2;
     const positionZ = wallDepth / 2;
 
-    let wallMesh;
-
     // initialize cannon
     const world = new CANNON.World({
       gravity: new CANNON.Vec3(0, -9.82, 0),
     });
 
+    // test.scene.add(world)
+
+    const cannonDebugger = new CannonDebugger(test.scene, world, {});
+
     const groundBody = new CANNON.Body({
       type: CANNON.Body.STATIC,
       shape: new CANNON.Plane(new CANNON.Vec3(wallWidth, wallDepth)),
     });
-    groundBody.position.set(0, -1.5, 0);
-
+    groundBody.position.set(0, -2, 0);
     groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+    groundBody.name = 'groundBody';
     world.addBody(groundBody);
-
-    // add spherebody
-    const radius = 1;
-    const sphereBody = new CANNON.Body({
-      mass: 5,
-      shape: new CANNON.Sphere(radius),
-    })
-
-    sphereBody.position.set(0, 10, 0);
-    world.addBody(sphereBody);
-
-    // add sphere mesh
-    const sphereGeometry = new THREE.SphereGeometry(radius);
-    const sphereMaterial = new THREE.MeshBasicMaterial({});
-
-    const sphereMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
-    sphereMesh.castShadow = true;
-    test.scene.add(sphereMesh);
-
-    const cannonDebugger = new CannonDebugger(test.scene, world, {});
-
-    // add boxbody
-    const boxBody = new CANNON.Body({
-      mass: 5,
-      shape: new CANNON.Box(new CANNON.Vec3(1, 1, 1)),
-    });
-
-    boxBody.position.set(1, 12, 0);
-    world.addBody(boxBody);
-
-    // add box mesh
-    const boxGeometry = new THREE.BoxGeometry(2, 2, 2);
-    const boxMaterial = new THREE.MeshBasicMaterial({});
-    const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
-    boxMesh.castShadow = true;
-    test.scene.add(boxMesh);
 
     // initialize gui
     const gui = new GUI();
 
     // main group
-    const mainGroup = new THREE.Group();
-    mainGroup.position.y = 0.5;
-    test.scene.add(mainGroup);
+    // const mainGroup = new THREE.Group();
+    // mainGroup.position.y = 0.5;
+    // mainGroup.name = 'mainGroup';
+    // test.scene.add(mainGroup);
+
 
     // create wall function
-    const createCustomWall = (image) => {
-      const wallGeometry = new THREE.BoxGeometry(wallDepth, wallHeight, 0.5);
-      const wallTexture = new THREE.TextureLoader().load(image);
+    // const createCustomWall = (image) => {
+    //   const wallGeometry = new THREE.BoxGeometry(wallDepth, wallHeight, 0.5);
+    //   const wallTexture = new THREE.TextureLoader().load(image);
 
-      const wallMaterial = new THREE.MeshPhongMaterial({ map: wallTexture });
-      const wallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
+    //   const wallMaterial = new THREE.MeshPhongMaterial({ map: wallTexture });
+    //   const wallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
 
-      mainGroup.add(wallMesh);
+    //   mainGroup.add(wallMesh);
 
-      return wallMesh;
-    };
+    //   return wallMesh;
+    // };
 
     // create websocket connection
     try {
@@ -128,15 +99,10 @@ function App() {
         console.log(message.data);
         const data = JSON.parse(message.data);
         console.log(data.method);
-        // {"method":"createWall", "params":{"image":"./src/assets/walls_news_anchor.jpeg"}}
 
-        if (data.method === 'createWall') {
-          const image = data.params.image;
-          const wallMesh = createCustomWall(image);
-        }
 
         // {"method":"switchTvScreen"}
-        else if (data.method === 'switchTvScreen') {
+        if (data.method === 'switchTvScreen') {
 
           console.log('renderer.domElement: ', renderer.domElement);
 
@@ -146,30 +112,44 @@ function App() {
         // {"method":"listAllObjects"}
 
         else if (data.method === 'listAllObjects') {
+
+          let count = 0;
           test.scene.traverse(object => {
             if (object.isMesh) {
               console.log(object);
-              localStorage.setItem('object_list', JSON.stringify(object));
+              // localStorage.setItem('object_list', JSON.stringify(object));
+              count++;
             }
           });
+          console.log('count: ', count);
         }
 
         // {"method":"createSphere"}
 
         else if (data.method === 'createSphere') {
 
-          for (let i = 0; i < 10; i++) {
-            const randomSphereMesh = createSphere({ world: world, scene: test.scene });
+          const randomSphereMesh = createSphere({ world: world, scene: test.scene });
+          subCamera.lookAt(randomSphereMesh.position);
 
-            subCamera.lookAt(randomSphereMesh.position);
-          }
         }
 
         // {"method":"saveScene"}
         else if (data.method === 'saveScene') {
-          const sceneScene = saveScene({ scene: test.scene });
+
+          saveScene({ scene: test.scene, world: world });
         }
 
+        // {"method":"loadScene"}
+        else if (data.method === 'loadScene') {
+          loadScene({ scene: test.scene, world: world });
+          const tvVideoMaterial = createTvMesh({ scene: test });
+
+        }
+
+        // else if (data.method === 'createTvMesh') {
+        //   createTvMesh({ scene: test });
+
+        // }
       };
     } catch (error) { console.log(error); };
 
@@ -178,41 +158,31 @@ function App() {
     const wall_news_anchor_img = '/src/assets/walls_news_anchor.jpeg';
 
     // left wall
-    const wallBody1 = createWall(wall_news_anchor_img, { world: world }, { group: mainGroup });
+    const wallBody1 = createWall(wall_news_anchor_img, { world: world, scene: test.scene });
     wallBody1.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), Math.PI / 2);
-    wallBody1.position.x = -positionX;
-    wallBody1.position.y = positionY;
-
-    wallBody1.name = 'leftWall';
-
-    // mainGroup.add(wallBody);
+    wallBody1.position.set(-positionX, positionY, 0)
+    wallBody1.name = 'leftWallBody';
 
     // right wall
-    const wallBody2 = createWall(wall_news_anchor_img, { world: world }, { group: mainGroup });
+    const wallBody2 = createWall(wall_news_anchor_img, { world: world, scene: test.scene });
     wallBody2.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), -Math.PI / 2);
-    wallBody2.position.x = positionX;
-    wallBody2.position.y = positionY;
-
-    wallBody2.name = 'rightWall';
-
-    // mainGroup.add(wallBody);
+    wallBody2.position.set(positionX, positionY, 0)
+    wallBody2.name = 'rightWallBody';
 
     // backwall
-    const wallBody3 = createWall(wall_news_anchor_img, { world: world }, { group: mainGroup });
-    wallBody3.position.y = positionY;
-    wallBody3.position.z = positionZ;
-    wallBody3.name = 'backWall';
-    // mainGroup.add(wallBody3);
+    const wallBody3 = createWall(wall_news_anchor_img, { world: world, scene: test.scene });
+    wallBody3.position.set(0, positionY, positionZ)
+    wallBody3.name = 'backWallBody';
 
     // set up ground
     const groundGeometry = new THREE.PlaneGeometry(wallWidth, wallDepth);
     const groundMaterial = new THREE.MeshPhongMaterial({ color: 0xfafafa });
     const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
     groundMesh.receiveShadow = true;
-    groundMesh.position.y = -2;
+    groundMesh.position.set(0, -2, 0);
 
-    groundMesh.name = 'ground';
-    mainGroup.add(groundMesh);
+    groundMesh.name = 'groundMesh';
+    test.scene.add(groundMesh);
 
     // set up background
     const bgBody = new CANNON.Body({
@@ -221,6 +191,7 @@ function App() {
     });
 
     bgBody.position.set(0, positionY, -positionZ);
+    bgBody.name = 'bgBody';
     world.addBody(bgBody);
 
     const bgGeometry = new THREE.BoxGeometry(wallWidth, wallHeight, 0.5);
@@ -229,13 +200,10 @@ function App() {
 
     const bgMesh = new THREE.Mesh(bgGeometry, bgMaterial);
 
-    // bgMesh.rotation.x = -Math.PI / 2;
+    bgMesh.name = 'backgroundMesh';
+    test.scene.add(bgMesh);
 
-    // bgGeometry.position.set(0, positionY, -positionZ)
-    bgMesh.name = 'background';
-    mainGroup.add(bgMesh);
-
-    // set up walls
+    // set up wall
     const wallGeometry = new THREE.BoxGeometry(wallDepth, wallHeight, 0.5);
     const wallTetxture = new THREE.TextureLoader().load(wall_news_anchor_img);
     const wallMaterial = new THREE.MeshPhongMaterial({ map: wallTetxture });
@@ -245,23 +213,16 @@ function App() {
       type: CANNON.Body.STATIC,
       shape: new CANNON.Box(new CANNON.Vec3(wallWidth / 2, 1, wallDepth / 2)),
     })
-
-    // ceilingBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-
     ceilingBody.position.set(0, 22, 0);
-
+    ceilingBody.name = 'ceilingBody';
     world.addBody(ceilingBody);
 
     const ceilingGeometry = new THREE.BoxGeometry(wallWidth, 0.5, wallDepth);
 
     const ceilingMesh = new THREE.Mesh(ceilingGeometry, wallMaterial);
 
-    // ceilingMesh.rotation.x = Math.PI / 2;
-
-    // ceilingMesh.position.y = 22;
-    ceilingMesh.name = 'ceiling';
-
-    mainGroup.add(ceilingMesh);
+    ceilingMesh.name = 'ceilingMesh';
+    test.scene.add(ceilingMesh);
 
     // set up video geometry
 
@@ -270,8 +231,8 @@ function App() {
     const video = document.getElementById('video_test');
     const texture = new THREE.VideoTexture(video);
 
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
+    // texture.minFilter = THREE.LinearFilter;
+    // texture.magFilter = THREE.LinearFilter;
 
     // const TextureLoader = new THREE.TextureLoader();
     // const texture = TextureLoader.load('/src/assets/in.mp4');
@@ -287,34 +248,87 @@ function App() {
     videoMesh.castShadow = true;
     videoMesh.name = 'videoMesh';
 
-    mainGroup.add(videoMesh);
+    // mainGroup.add(videoMesh);
+
+
+    // GLTF model loader
+    const modelLoader = new GLTFLoader();
+    modelLoader.load('/src/assets/ocarina_of_time_link.glb', function (gltf) {
+      gltf.scene.scale.set(0.2, 0.2, 0.2);
+
+      const scaledModel = gltf.scene;
+      scaledModel.position.set(0, -2, 0);
+      scaledModel.castShadow = true;
+
+      scaledModel.name = 'link';
+      // mainGroup.add(scaledModel);
+
+    });
 
     // create tv screen
-    const tvGeometry = new THREE.BoxGeometry(20, 9, 0.5);
-    // const video2 = document.getElementById('video_test2');
 
-    // if (video2.muted) {
-    //   console.log('play');
-    //   video2.play();
-    // }
+    const tvVideoMaterial = createTvMesh({ scene: test });
+    // const tvGeometry = new THREE.BoxGeometry(20, 9, 0.5);
+    // const mainCamera = test.renderer.domElement;
+    // const mainCameratexture = new THREE.Texture(mainCamera);
+    // const tvVideoMaterial = new THREE.MeshBasicMaterial({ map: mainCameratexture, side: THREE.DoubleSide, toneMapped: false });
 
-    // const videoMaterial2 = new THREE.MeshPhongMaterial({ map: texture2, side: THREE.DoubleSide, toneMapped: false });
-    const tvVideoMaterial = new THREE.MeshBasicMaterial();
-    const tvVideoMesh = new THREE.Mesh(tvGeometry, tvVideoMaterial);
+    // const tvVideoMesh = new THREE.Mesh(tvGeometry, tvVideoMaterial);
+    // tvVideoMesh.name = 'tvVideoMesh';
 
-    tvVideoMesh.position.set(9.2, positionY + 1.9, -positionZ + 0.1)
+    // tvVideoMesh.position.set(9.2, positionY + 1.9, -positionZ + 0.1)
 
-    tvVideoMesh.name = 'tvVideoMesh';
+    // test.scene.add(tvVideoMesh);
 
-    mainGroup.add(tvVideoMesh);
+    // const tvMeshJson = JSON.stringify(test.scene.children[2]);
 
+    console.log('scene children:', test.scene.children);
 
-    const mainCamera = test.renderer.domElement;
-    tvVideoMaterial.map = new THREE.Texture(mainCamera);
+    // add sphere mesh
+    const radius = 1;
+    const sphereGeometry = new THREE.SphereGeometry(radius);
+    const sphereMaterial = new THREE.MeshBasicMaterial({});
+
+    const sphereMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    sphereMesh.castShadow = true;
+
+    sphereMesh.name = 'sphereMesh';
+    test.scene.add(sphereMesh);
+
+    // add sphere body
+    const sphereBody = new CANNON.Body({
+      mass: 5,
+      shape: new CANNON.Sphere(radius),
+    })
+
+    sphereBody.id = sphereMesh.uuid;
+    sphereBody.name = 'sphereBody';
+    sphereBody.position.set(0, 10, 1);
+    world.addBody(sphereBody);
+
+    // add box mesh
+    const boxGeometry = new THREE.BoxGeometry(2, 2, 2);
+    const boxMaterial = new THREE.MeshBasicMaterial({});
+    const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
+    boxMesh.castShadow = true;
+    boxMesh.name = 'boxMesh';
+    test.scene.add(boxMesh);
+
+    // add box body
+    const boxBody = new CANNON.Body({
+      mass: 5,
+      shape: new CANNON.Box(new CANNON.Vec3(1, 1, 1)),
+    });
+
+    boxBody.id = boxMesh.uuid;
+    boxBody.name = 'boxBody';
+    boxBody.position.set(0, 12, 0);
+    world.addBody(boxBody);
 
     // set up ambient light
     const al = new THREE.AmbientLight(0xffffff, 0.5);
-    mainGroup.add(al);
+    al.name = 'ambientLight';
+    test.scene.add(al);
 
     // set up ambient light gui
     const alFolder = gui.addFolder('ambient light');
@@ -333,7 +347,8 @@ function App() {
     // dl.position.set(0, 2, 0);
     dl.castShadow = true;
     const dlHelper = new THREE.DirectionalLightHelper(dl, 3);
-    mainGroup.add(dl);
+    dl.name = 'directionalLight';
+    test.scene.add(dl);
     // mainGroup.add(dlHelper);
 
     // set up directional light gui
@@ -358,7 +373,8 @@ function App() {
     const sl = new THREE.SpotLight(0x00ff00, 1, 8, Math.PI / 8, 0);
     sl.position.set(0, 2, 2);
     const slHelper = new THREE.SpotLightHelper(sl);
-    mainGroup.add(sl);
+    sl.name = 'spotLight'
+    test.scene.add(sl);
 
     // set up spot light gui
     const slSettings = {
@@ -389,8 +405,20 @@ function App() {
 
     var move = 0.05
 
+    // console.log('scene children length:', test.scene.children)
+
+    // for (let i = 0; i < test.scene.children.length; i++) {
+    //   console.log('scene children:', test.scene.children[i])
+    // }
+
+    console.log('world', world)
+
+    // for (let i = 0; i < world.bodies.length; i++) {
+    //   console.log('world children:', world.bodies[i])
+    // }
+
     //  animate function
-    const animate2 = () => {
+    const animate = () => {
 
       world.fixedStep();
 
@@ -449,31 +477,70 @@ function App() {
       // }
 
       // camera look at
-      test.camera.lookAt(mainGroup.position);
+      test.camera.lookAt(0, 0, 0);
       subCamera.lookAt(boxMesh.position);
 
-      window.requestAnimationFrame(animate2);
+      window.requestAnimationFrame(animate);
     }
 
     const updateVideoTexture = () => {
 
       // // define the camera limits
-      // const minCameraPosition = new THREE.Vector3(-100, 0, -100);
-      // const maxCameraPosition = new THREE.Vector3(100, 100, 100);
+      // const minCameraPosition = new THREE.Vector3(0, 0, 0);
+      // const maxCameraPosition = new THREE.Vector3(50, 25, 50);
 
       // // position limits
-      // camera.position.clamp(minCameraPosition, maxCameraPosition);
+      // test.camera.position.clamp(minCameraPosition, maxCameraPosition);
 
       test.controls.update();
       texture.needsUpdate = true;
 
     }
 
-    animate2();
+    // const saveScene = () => {
+
+    //   // save three objects
+    //   // test.controls.detach();
+    //   test.scene.remove(test.controls);
+    //   test.scene.updateMatrixWorld();
+    //   const exporter = test.scene.toJSON();
+    //   const sceneJson = JSON.stringify(exporter);
+    //   localStorage.setItem('scene', sceneJson);
+
+    //   // const blob = new Blob([sceneJson], { type: 'application/json' });
+    //   // saveAs(blob, 'scene.json');
+
+    //   // save cannon objects
+    //   const cannonBodies = [];
+
+    //   // console.log('world.bodies: ', world.bodies);
+    //   world.bodies.forEach((body) => {
+    //     const cannonBody = {
+    //       uuid: body.uuid,
+    //       type: body.type,
+    //       name: body.name,
+    //       mass: body.mass,
+    //       position: body.position.toArray(),
+    //       quaternion: body.quaternion.toArray(),
+    //       velocity: body.velocity.toArray(),
+    //       angularVelocity: body.angularVelocity.toArray(),
+    //     };
+
+    //     cannonBodies.push(cannonBody);
+    //   })
+
+    //   const cannonWorld = {
+    //     bodies: cannonBodies,
+    //   }
+
+    //   localStorage.setItem('cannon', JSON.stringify(cannonWorld));
+    //   console.log('cannonWorld: ', world);
+
+    // }
+
+    animate();
     onWindowResize();
     updateVideoTexture();
-
-
 
     return () => {
       // Destroy the GUI
